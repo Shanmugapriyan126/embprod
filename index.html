@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#7a3cff">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Embroidery Production Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--tx:#1d2330;--mut:#6b7385;--bd:#e1e4ea;--ac:#7a3cff;--ac2:#efe8ff;--ok:#1f9d63;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14161c;--card:#1d2029;--tx:#e8eaf0;--mut:#8f97a8;--bd:#2c3040;--ac:#a47bff;--ac2:#2a2142;--ok:#3ccf8e}}
+:root[data-theme="dark"]{--bg:#14161c;--card:#1d2029;--tx:#e8eaf0;--mut:#8f97a8;--bd:#2c3040;--ac:#a47bff;--ac2:#2a2142;--ok:#3ccf8e}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.top{position:fixed;top:env(safe-area-inset-top,0px);left:0;right:0;height:56px;background:var(--card);border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:12px;padding:0 16px;z-index:10}
+.top h1{font-size:16px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+select,input,button{font:inherit;color:var(--tx)}
+select,input{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:6px 8px}
+.btn{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:7px 12px;cursor:pointer}
+.btn.alt{background:var(--ac2);color:var(--ac)}
+.side{position:fixed;top:calc(56px + env(safe-area-inset-top,0px));bottom:0;left:0;width:190px;background:var(--card);border-right:1px solid var(--bd);padding:12px;display:flex;flex-direction:column;gap:6px;z-index:9}
+.side button{text-align:left;background:none;border:0;border-radius:8px;padding:10px;cursor:pointer}
+.side button.on,.side button:hover{background:var(--ac2);color:var(--ac)}
+.side small{color:var(--mut);margin-top:auto}
+main{margin:calc(56px + env(safe-area-inset-top,0px)) 0 0 190px;padding:16px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px}
+.kpi span{color:var(--mut);font-size:12px}.kpi b{display:block;font-size:22px}
+.wrap{background:var(--card);border:1px solid var(--bd);border-radius:12px;overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:640px}
+th,td{padding:9px 12px;border-bottom:1px solid var(--bd);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left;font-weight:600}
+th{background:var(--ac2);color:var(--ac);cursor:default}
+th[data-f]{cursor:pointer}
+td+td,th+th{border-left:1px solid var(--bd)}
+tfoot td{font-weight:700;background:var(--bg)}
+.pin{margin-left:8px;border:1px solid var(--bd);background:var(--bg);border-radius:6px;width:26px;height:26px;cursor:pointer;vertical-align:middle}
+.pin:hover{background:var(--ac);border-color:var(--ac)}
+.tot{font-weight:700}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:20;padding:12px}
+.modal.open{display:flex}
+.box{background:var(--card);border-radius:14px;max-width:560px;width:100%;max-height:92%;overflow:auto;padding:16px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.days{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px}
+.days label{display:block;font-size:11px;color:var(--mut)}
+.days input{width:100%}
+.sum{font-size:18px;font-weight:700;margin:12px 0}
+@media(max-width:700px){.side{top:auto;bottom:0;left:0;right:0;width:auto;flex-direction:row;border-right:0;border-top:1px solid var(--bd);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px))}.side small{display:none}.side button{flex:1;text-align:center;padding:8px 4px;font-size:12px}main{margin-left:0;padding-bottom:80px}.top .lbl{display:none}}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>🧵 Embroidery Production</h1>
+  <span class="lbl" style="color:var(--mut)">Year</span>
+  <select id="year"></select>
+  <button class="btn alt" id="csvTop">CSV</button>
+  <button class="btn" id="xlsTop">Excel</button>
+</header>
+<nav class="side">
+  <button class="on" id="nDash">📊 Dashboard</button>
+  <button id="nDaily">📝 Daily Entry</button>
+  <button id="nCsv">⬇ Export CSV</button>
+  <button id="nXls">⬇ Export Excel</button>
+  <small>Tip: click a factory name to rename it. Data is saved in this browser — export regularly.</small>
+</nav>
+<main>
+  <div class="kpis" id="kpis"></div>
+  <div class="wrap"><table id="tbl"></table></div>
+</main>
+<div class="modal" id="modal"><div class="box">
+  <div class="row">
+    <select id="mF"></select><select id="mM"></select>
+    <button class="btn alt" id="mClose" style="margin-left:auto">Close</button>
+  </div>
+  <div class="days" id="days"></div>
+  <div class="sum">Month total: <span id="mSum">0</span></div>
+  <button class="btn" id="mDone">Save &amp; Close</button>
+</div></div>
+<script>
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const KEY="embroideryProd.v1";
+let S={names:["Factory 1","Factory 2","Factory 3","Factory 4"],data:{}};
+try{const r=localStorage.getItem(KEY);if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const $=id=>document.getElementById(id);
+const now=new Date();let Y=now.getFullYear();
+const dim=(y,m)=>new Date(y,m+1,0).getDate();
+const k=(y,m,f)=>y+"-"+m+"-"+f;
+const fmt=n=>Number(n).toLocaleString();
+function mTotal(y,m,f){const d=S.data[k(y,m,f)]||{};return Object.values(d).reduce((a,v)=>a+(+v||0),0)}
+
+const ys=$("year");
+for(let y=now.getFullYear()-3;y<=now.getFullYear()+1;y++){const o=document.createElement("option");o.value=y;o.textContent=y;ys.appendChild(o)}
+ys.value=Y;ys.onchange=()=>{Y=+ys.value;render()};
+
+function render(){
+  let h="<thead><tr><th>Month</th>";
+  S.names.forEach((n,f)=>h+=`<th data-f="${f}" title="Click to rename">${n}</th>`);
+  h+="<th>Total</th></tr></thead><tbody>";
+  const col=[0,0,0,0];
+  for(let m=0;m<12;m++){
+    let rt=0;h+=`<tr><td>${MON[m]}</td>`;
+    for(let f=0;f<4;f++){const v=mTotal(Y,m,f);rt+=v;col[f]+=v;
+      h+=`<td>${fmt(v)}<button class="pin" data-m="${m}" data-f="${f}" title="Daily update">📌</button></td>`}
+    h+=`<td class="tot">${fmt(rt)}</td></tr>`;
+  }
+  const g=col.reduce((a,b)=>a+b,0);
+  h+="</tbody><tfoot><tr><td>Year total</td>"+col.map(v=>`<td>${fmt(v)}</td>`).join("")+`<td>${fmt(g)}</td></tr></tfoot>`;
+  $("tbl").innerHTML=h;
+  $("kpis").innerHTML=`<div class="kpi"><span>${Y} total</span><b>${fmt(g)}</b></div>`+col.map((v,f)=>`<div class="kpi"><span>${S.names[f]}</span><b>${fmt(v)}</b></div>`).join("");
+  $("tbl").querySelectorAll(".pin").forEach(b=>b.onclick=()=>openDaily(+b.dataset.f,+b.dataset.m));
+  $("tbl").querySelectorAll("th[data-f]").forEach(t=>t.onclick=()=>{
+    const f=+t.dataset.f,n=prompt("Factory name",S.names[f]);
+    if(n&&n.trim()){S.names[f]=n.trim();save();render()}});
+}
+
+function fillSel(){
+  $("mF").innerHTML=S.names.map((n,i)=>`<option value="${i}">${n}</option>`).join("");
+  $("mM").innerHTML=MON.map((n,i)=>`<option value="${i}">${n} ${Y}</option>`).join("");
+}
+function drawDays(){
+  const f=+$("mF").value,m=+$("mM").value,d=S.data[k(Y,m,f)]||{};
+  let h="";
+  for(let i=1;i<=dim(Y,m);i++)h+=`<div><label>${i} ${MON[m]}</label><input type="number" min="0" inputmode="numeric" data-d="${i}" value="${d[i]??""}"></div>`;
+  $("days").innerHTML=h;
+  $("days").querySelectorAll("input").forEach(inp=>inp.oninput=()=>{
+    const kk=k(Y,m,f);S.data[kk]=S.data[kk]||{};
+    if(inp.value==="")delete S.data[kk][inp.dataset.d];else S.data[kk][inp.dataset.d]=+inp.value;
+    save();$("mSum").textContent=fmt(mTotal(Y,m,f));render()});
+  $("mSum").textContent=fmt(mTotal(Y,m,f));
+}
+function openDaily(f,m){fillSel();$("mF").value=f;$("mM").value=m;drawDays();$("modal").classList.add("open")}
+const closeM=()=>{$("modal").classList.remove("open");render()};
+$("mF").onchange=drawDays;$("mM").onchange=drawDays;
+$("mClose").onclick=closeM;$("mDone").onclick=closeM;
+$("modal").onclick=e=>{if(e.target===$("modal"))closeM()};
+$("nDaily").onclick=()=>openDaily(0,Math.min(11,now.getMonth()));
+$("nDash").onclick=()=>window.scrollTo(0,0);
+
+function summaryRows(){
+  const r=[["Month",...S.names,"Total"]];
+  for(let m=0;m<12;m++){const v=[0,1,2,3].map(f=>mTotal(Y,m,f));r.push([MON[m]+" "+Y,...v,v.reduce((a,b)=>a+b,0)])}
+  const t=[0,1,2,3].map(f=>{let s=0;for(let m=0;m<12;m++)s+=mTotal(Y,m,f);return s});
+  r.push(["Year total",...t,t.reduce((a,b)=>a+b,0)]);return r;
+}
+function dailyRows(){
+  const r=[["Date","Factory","Production"]];
+  for(let f=0;f<4;f++)for(let m=0;m<12;m++){const d=S.data[k(Y,m,f)]||{};
+    Object.keys(d).sort((a,b)=>a-b).forEach(i=>r.push([`${Y}-${String(m+1).padStart(2,"0")}-${String(i).padStart(2,"0")}`,S.names[f],d[i]]))}
+  return r;
+}
+const esc=v=>{v=String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+function exportCSV(){
+  const txt=summaryRows().concat([[]],[["Daily detail"]],dailyRows()).map(r=>r.map(esc).join(",")).join("\n");
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+txt],{type:"text/csv"}));
+  a.download=`embroidery-production-${Y}.csv`;a.click();
+}
+function exportXLS(){
+  if(!window.XLSX){alert("Excel library not loaded. Use CSV.");return}
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(summaryRows()),"Monthly Summary");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(dailyRows()),"Daily Detail");
+  XLSX.writeFile(wb,`embroidery-production-${Y}.xlsx`);
+}
+["csvTop","nCsv"].forEach(i=>$(i).onclick=exportCSV);
+["xlsTop","nXls"].forEach(i=>$(i).onclick=exportXLS);
+render();
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+</script>
+</body>
+</html>
